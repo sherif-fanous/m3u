@@ -28,9 +28,9 @@ func main() {
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1" tvg-country="USA",Channel 1
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
-http://127.0.0.1/user/pass/1
+http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2",Channel 2
-http://127.0.0.1/user/pass/2
+http://127.0.0.1/stream_2
 `
 
     // Using Unmarshal
@@ -101,7 +101,7 @@ func makePointer(s string) *string {
 
 func main() {
     tvgLogo, _ := url.Parse("http://127.0.0.1/logos/live_stream_1.png")
-    trackURL, _ := url.Parse("http://127.0.0.1/user/pass/1")
+    trackURL, _ := url.Parse("http://127.0.0.1/stream_1")
 
     playlist := &m3u.Playlist{
         Tracks: []m3u.Track{
