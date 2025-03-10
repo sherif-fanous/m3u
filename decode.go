@@ -52,19 +52,27 @@ func (d *Decoder) Decode(p *Playlist) error {
 
 	for {
 		line, err := d.readLine()
-		if err == io.EOF {
-			if currentTrack != nil {
-				return ErrInvalidPlaylist{
-					Message:    "`#EXTINF` directive block must end with a URL",
-					LineNumber: d.lineNumber,
-					Line:       line,
+
+		// Handle empty lines with special EOF case
+		if line == "" {
+			if err == io.EOF {
+				// If we reached EOF and there's a pending track, that's an error
+				if currentTrack != nil {
+					return ErrInvalidPlaylist{
+						Message:    "`#EXTINF` directive block must end with a URL",
+						LineNumber: d.lineNumber,
+						Line:       line,
+					}
 				}
+
+				break
 			}
 
-			break
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			continue // Just an empty line, skip it
 		}
 
 		if line == "" {
@@ -120,6 +128,15 @@ func (d *Decoder) Decode(p *Playlist) error {
 				LineNumber: d.lineNumber,
 				Line:       line,
 			}
+		}
+
+		// Check for EOF after processing the line
+		if err == io.EOF {
+			break
+		}
+		
+		if err != nil {
+			return err
 		}
 	}
 
