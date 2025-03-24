@@ -24,7 +24,7 @@ import (
 
 func main() {
     // Parse a playlist from a string
-    playlistData := `#EXTM3U
+    playlistData := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml" tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1" tvg-country="USA",Channel 1
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
@@ -39,14 +39,22 @@ http://127.0.0.1/stream_2
         log.Fatalf("Error parsing playlist: %v\n", err)
     }
 
-    log.Printf("Found %d tracks\n", len(playlist.Tracks))
-
     // Using a Decoder for streaming
     playlist = &m3u.Playlist{}
     decoder := m3u.NewDecoder(strings.NewReader(playlistData))
     if err := decoder.Decode(playlist); err != nil {
         log.Fatalf("Decoder error: %v\n", err)
     }
+
+    log.Printf("TVG URL: %s\n", playlist.TVGURL.String())
+    log.Printf("X TVG URL: %s\n", playlist.XTVGURL.String())
+
+    // Access extra attributes
+    for k, v := range playlist.ExtraAttributes {
+        log.Printf("Extra Attribute: %s = %s\n", k, v)
+    }
+
+    log.Printf("Found %d tracks\n", len(playlist.Tracks))
 
     // Access track information
     for i, track := range playlist.Tracks {
@@ -100,10 +108,16 @@ func makePointer(s string) *string {
 }
 
 func main() {
+    epgURL, _ := url.Parse("http://127.0.0.1/epg.xml")
     tvgLogo, _ := url.Parse("http://127.0.0.1/logos/live_stream_1.png")
     trackURL, _ := url.Parse("http://127.0.0.1/stream_1")
 
     playlist := &m3u.Playlist{
+        TVGURL:  epgURL,
+        XTVGURL: epgURL,
+        ExtraAttributes: map[string]string{
+            "tvg-url": "http://127.0.0.1/epg.xml",
+        },
         Tracks: []m3u.Track{
             {
                 Length:      -1,
@@ -165,7 +179,7 @@ http://127.0.0.1/stream_2
 ### M3U Plus Format (with Extended Attributes)
 
 ```bash
-#EXTM3U
+#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2",Channel 2
