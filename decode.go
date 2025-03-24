@@ -12,8 +12,9 @@ import (
 
 // Regular expressions for parsing EXTINF lines
 var (
-	extinfLineRegex      = regexp.MustCompile(`^#EXTINF:(-?\d+\.?\d*)(.*)?,(.*)$`)
-	extinfAttributeRegex = regexp.MustCompile(`([\p{L}\p{N}-]+)="([^"]*)"`)
+	extm3uLineRegex = regexp.MustCompile(`^#EXTM3U(?:\s+(.*))?$`)
+	extinfLineRegex = regexp.MustCompile(`^#EXTINF:(-?\d+\.?\d*)(.*)?,(.*)$`)
+	attributeRegex  = regexp.MustCompile(`([\p{L}\p{N}-]+)="([^"]*)"`)
 )
 
 // Decoder reads and decodes M3U playlists from an input stream.
@@ -31,8 +32,8 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 // Decode reads an M3U playlist from its input.
-func (d *Decoder) Decode(p *Playlist) error {
-	*p = Playlist{}
+func (d *Decoder) Decode(playlist *Playlist) error {
+	*playlist = Playlist{}
 
 	// Read #EXTM3U header
 	line, err := d.readLine()
@@ -40,12 +41,16 @@ func (d *Decoder) Decode(p *Playlist) error {
 		return err
 	}
 
-	if line != "#EXTM3U" {
+	if !strings.HasPrefix(line, "#EXTM3U") {
 		return ErrInvalidPlaylist{
 			Message:    "playlist must start with the `#EXTM3U` directive",
 			LineNumber: d.lineNumber,
 			Line:       line,
 		}
+	}
+
+	if err := d.parseEXTM3ULine(line, playlist); err != nil {
+		return err
 	}
 
 	var currentTrack *Track
@@ -90,7 +95,7 @@ func (d *Decoder) Decode(p *Playlist) error {
 
 			// Parse new track
 			var track Track
-			if err := d.parseExtInf(line, &track); err != nil {
+			if err := d.parseEXTINFLine(line, &track); err != nil {
 				return err
 			}
 
@@ -118,7 +123,7 @@ func (d *Decoder) Decode(p *Playlist) error {
 			}
 			currentTrack.URL = parsedURL
 
-			p.Tracks = append(p.Tracks, *currentTrack)
+			playlist.Tracks = append(playlist.Tracks, *currentTrack)
 
 			// Reset for the next track
 			currentTrack = nil
@@ -134,7 +139,7 @@ func (d *Decoder) Decode(p *Playlist) error {
 		if err == io.EOF {
 			break
 		}
-		
+
 		if err != nil {
 			return err
 		}
@@ -143,12 +148,15 @@ func (d *Decoder) Decode(p *Playlist) error {
 	return nil
 }
 
-func (d *Decoder) parseExtInf(line string, track *Track) error {
+func (d *Decoder) parseEXTINFLine(line string, track *Track) error {
 	// Match the basic pattern first
 	matches := extinfLineRegex.FindStringSubmatch(line)
 	if matches == nil {
 		return ErrInvalidPlaylist{
-			Message:    fmt.Sprintf("malformed `#EXTINF` line: `#EXTNF` line failed to match regex %q", extinfLineRegex),
+			Message: fmt.Sprintf(
+				"malformed `#EXTINF` line: `#EXTNF` line failed to match regex %q",
+				extinfLineRegex,
+			),
 			LineNumber: d.lineNumber,
 			Line:       line,
 		}
@@ -163,7 +171,7 @@ func (d *Decoder) parseExtInf(line string, track *Track) error {
 	attributes := strings.TrimSpace(matches[2])
 
 	// Extract all attributes
-	matchedAttributes := extinfAttributeRegex.FindAllStringSubmatch(attributes, -1)
+	matchedAttributes := attributeRegex.FindAllStringSubmatch(attributes, -1)
 	for _, match := range matchedAttributes {
 		key := match[1]
 		value := match[2]
@@ -191,6 +199,49 @@ func (d *Decoder) parseExtInf(line string, track *Track) error {
 
 	// Set name (after the last comma)
 	track.Name = strings.TrimSpace(matches[3])
+
+	return nil
+}
+
+func (d *Decoder) parseEXTM3ULine(line string, playlist *Playlist) error {
+	// Match the basic pattern first
+	matches := extm3uLineRegex.FindStringSubmatch(line)
+	if matches == nil {
+		return ErrInvalidPlaylist{
+			Message: fmt.Sprintf(
+				"malformed `#EXTM3U` line: `#EXTM3U` line failed to match regex %q",
+				extm3uLineRegex,
+			),
+			LineNumber: d.lineNumber,
+			Line:       line,
+		}
+	}
+
+	// Get the attributes part
+	attributes := strings.TrimSpace(matches[1])
+
+	// Extract all attributes
+	matchedAttributes := attributeRegex.FindAllStringSubmatch(attributes, -1)
+	for _, match := range matchedAttributes {
+		key := match[1]
+		value := match[2]
+
+		switch key {
+		case "url-tvg":
+			if tvgURL, err := url.Parse(value); err == nil {
+				playlist.TVGURL = tvgURL
+			}
+		case "x-tvg-url":
+			if xTVGURL, err := url.Parse(value); err == nil {
+				playlist.XTVGURL = xTVGURL
+			}
+		default:
+			if playlist.ExtraAttributes == nil {
+				playlist.ExtraAttributes = make(map[string]string)
+			}
+			playlist.ExtraAttributes[key] = value
+		}
+	}
 
 	return nil
 }

@@ -16,7 +16,10 @@ const (
 
 // Playlist represents an M3U playlist.
 type Playlist struct {
-	Tracks []Track
+	TVGURL          *url.URL
+	XTVGURL         *url.URL
+	ExtraAttributes map[string]string
+	Tracks          []Track
 }
 
 // Track represents a single entry in an M3U playlist.

@@ -63,7 +63,7 @@ http://127.0.0.1/stream_2
 func TestDecodeM3UPlus(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃",Channel 1 🙃
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2 🙃",Channel 2 🙃
@@ -77,6 +77,8 @@ http://127.0.0.1/stream_2
 	}
 
 	expectedPlaylist := &m3u.Playlist{
+		TVGURL:  makeURL(t, "http://127.0.0.1/epg.xml"),
+		XTVGURL: makeURL(t, "http://127.0.0.1/epg.xml"),
 		Tracks: []m3u.Track{
 			{
 				Length:      -1,
@@ -144,6 +146,8 @@ func TestEncodeM3UPlus(t *testing.T) {
 	t.Parallel()
 
 	playlist := &m3u.Playlist{
+		TVGURL:  makeURL(t, "http://127.0.0.1/epg.xml"),
+		XTVGURL: makeURL(t, "http://127.0.0.1/epg.xml"),
 		Tracks: []m3u.Track{
 			{
 				Length:      -1,
@@ -180,7 +184,7 @@ func TestEncodeM3UPlus(t *testing.T) {
 		t.Fatalf("Failed to marshal M3U Plus: %v", err)
 	}
 
-	expected := `#EXTM3U
+	expected := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃" tvg-country="USA",Channel 1 🙃
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
@@ -196,7 +200,7 @@ http://127.0.0.1/stream_2
 func TestExtraAttributesAndDirectives(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml" tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-country="USA" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
@@ -210,6 +214,11 @@ http://127.0.0.1/stream_1
 	}
 
 	expectedPlaylist := &m3u.Playlist{
+		TVGURL:  makeURL(t, "http://127.0.0.1/epg.xml"),
+		XTVGURL: makeURL(t, "http://127.0.0.1/epg.xml"),
+		ExtraAttributes: map[string]string{
+			"tvg-url": "http://127.0.0.1/epg.xml",
+		},
 		Tracks: []m3u.Track{
 			{
 				Length:      -1,
@@ -239,7 +248,7 @@ http://127.0.0.1/stream_1
 func TestRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃",Channel 1 🙃
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2 🙃",Channel 2 🙃
@@ -269,30 +278,54 @@ http://127.0.0.1/stream_2
 func TestErrInvalidPlaylistEXTM3U(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
+	tests := []struct {
+		name          string
+		input         string
+		expectedError string
+	}{
+		{
+			name: "missing `#EXTM3U` directive",
+			input: `#EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2",Channel 2
 http://127.0.0.1/stream_2
-`
-
-	_, err := m3u.Unmarshal([]byte(input))
-	if err == nil {
-		t.Fatal("Expected an ErrInvalidPlaylist error")
+`,
+			expectedError: "playlist must start with the `#EXTM3U` directive",
+		},
+		{
+			name: "malformed `#EXTM3U` line",
+			input: `#EXTM3Uurl-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
+#EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
+http://127.0.0.1/stream_1
+#EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2",Channel 2
+http://127.0.0.1/stream_2
+`,
+			expectedError: "malformed `#EXTM3U` line: `#EXTM3U` line failed to match regex",
+		},
 	}
 
-	_, ok := err.(m3u.ErrInvalidPlaylist)
-	if !ok {
-		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "playlist must start with the `#EXTM3U` directive") {
-		t.Fatalf("Expected error message to contain `playlist must start with the `#EXTM3U` directive`, got: %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := m3u.Unmarshal([]byte(test.input))
+			if err == nil {
+				t.Fatal("Expected an ErrInvalidPlaylist error")
+			}
+
+			_, ok := err.(m3u.ErrInvalidPlaylist)
+			if !ok {
+				t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+			}
+			if !strings.Contains(err.Error(), test.expectedError) {
+				t.Fatalf("Expected error message to contain %s, got: %v", test.expectedError, err)
+			}
+		})
 	}
 }
 
 func TestErrInvalidPlaylistEXTINFFirst(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-country="USA" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
@@ -308,15 +341,21 @@ http://127.0.0.1/stream_1
 	if !ok {
 		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "`#EXTINF` directive must appear before any other directive") {
-		t.Fatalf("Expected error message to contain `#EXTINF` directive must appear before any other directive, got: %v", err)
+	if !strings.Contains(
+		err.Error(),
+		"`#EXTINF` directive must appear before any other directive",
+	) {
+		t.Fatalf(
+			"Expected error message to contain `#EXTINF` directive must appear before any other directive, got: %v",
+			err,
+		)
 	}
 }
 
 func TestErrInvalidPlaylistInvalidURL(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-country="USA" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 #EXTVLCOPT:http-referrer=http://example.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
@@ -340,7 +379,7 @@ http://127.0.0.1/stream_1%
 func TestErrInvalidPlaylistMalformedEXTINFLine(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:NotANumber tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-country="USA" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 http://127.0.0.1/stream_1
 `
@@ -368,7 +407,7 @@ func TestErrInvalidPlaylistMissingURL(t *testing.T) {
 	}{
 		{
 			name: "missing first URL",
-			input: `#EXTM3U
+			input: `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃",Channel 1 🙃
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2 🙃",Channel 2 🙃
 http://127.0.0.1/stream_2
@@ -378,7 +417,7 @@ http://127.0.0.1/stream_3
 		},
 		{
 			name: "missing intermediate URL",
-			input: `#EXTM3U
+			input: `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃",Channel 1 🙃
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2 🙃",Channel 2 🙃
@@ -388,7 +427,7 @@ http://127.0.0.1/stream_3
 		},
 		{
 			name: "missing final URL",
-			input: `#EXTM3U
+			input: `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1 🙃",Channel 1 🙃
 http://127.0.0.1/stream_1
 #EXTINF:-1 tvg-id="channel-2" tvg-name="Channel 2" tvg-language="French" tvg-logo="http://127.0.0.1/logos/live_stream_2.png" group-title="Group 2 🙃",Channel 2 🙃
@@ -410,7 +449,10 @@ http://127.0.0.1/stream_2
 				t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
 			}
 			if !strings.Contains(err.Error(), "`#EXTINF` directive block must end with a URL") {
-				t.Fatalf("Expected error message to contain `#EXTINF` directive block must end with a URL, got: %v", err)
+				t.Fatalf(
+					"Expected error message to contain `#EXTINF` directive block must end with a URL, got: %v",
+					err,
+				)
 			}
 		})
 	}
@@ -419,7 +461,7 @@ http://127.0.0.1/stream_2
 func TestErrInvalidPlaylistUnexpectedContent(t *testing.T) {
 	t.Parallel()
 
-	input := `#EXTM3U
+	input := `#EXTM3U url-tvg="http://127.0.0.1/epg.xml" x-tvg-url="http://127.0.0.1/epg.xml"
 #EXTINF:-1 tvg-id="channel-1" tvg-name="Channel 1" tvg-language="English" tvg-country="USA" tvg-logo="http://127.0.0.1/logos/live_stream_1.png" group-title="Group 1",Channel 1
 http://127.0.0.1/stream_1
 Unexpected content

@@ -17,14 +17,40 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 // Encode writes the M3U encoding of p to the stream.
-func (e *Encoder) Encode(p *Playlist, playlistType PlaylistType) error {
+func (e *Encoder) Encode(playlist *Playlist, playlistType PlaylistType) error {
 	// Write #EXTM3U line
-	if _, err := io.WriteString(e.w, "#EXTM3U\n"); err != nil {
+	if _, err := io.WriteString(e.w, "#EXTM3U"); err != nil {
+		return err
+	}
+
+	// Write TVG-URL if present
+	if playlist.TVGURL != nil {
+		if _, err := fmt.Fprintf(e.w, " url-tvg=\"%s\"", playlist.TVGURL.String()); err != nil {
+			return err
+		}
+	}
+
+	// Write XTVG-URL if present
+	if playlist.XTVGURL != nil {
+		if _, err := fmt.Fprintf(e.w, " x-tvg-url=\"%s\"", playlist.XTVGURL.String()); err != nil {
+			return err
+		}
+	}
+
+	// Write extra attributes
+	for key, value := range playlist.ExtraAttributes {
+		if _, err := fmt.Fprintf(e.w, " %s=\"%s\"", key, value); err != nil {
+			return err
+		}
+	}
+
+	// Write newline after #EXTM3U line
+	if _, err := io.WriteString(e.w, "\n"); err != nil {
 		return err
 	}
 
 	// Write tracks
-	for _, track := range p.Tracks {
+	for _, track := range playlist.Tracks {
 		// Write #EXTINF line
 		if playlistType == M3UPlus {
 			// M3UPlus format with attributes
