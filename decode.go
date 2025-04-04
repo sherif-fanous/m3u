@@ -80,10 +80,6 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 			continue // Just an empty line, skip it
 		}
 
-		if line == "" {
-			continue
-		}
-
 		if strings.HasPrefix(line, "#EXTINF:") {
 			if currentTrack != nil {
 				return ErrInvalidPlaylist{
@@ -121,8 +117,8 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 					Line:       line,
 				}
 			}
-			currentTrack.URL = parsedURL
 
+			currentTrack.URL = parsedURL
 			playlist.Tracks = append(playlist.Tracks, *currentTrack)
 
 			// Reset for the next track
@@ -138,10 +134,6 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 		// Check for EOF after processing the line
 		if err == io.EOF {
 			break
-		}
-
-		if err != nil {
-			return err
 		}
 	}
 
@@ -247,10 +239,11 @@ func (d *Decoder) parseEXTM3ULine(line string, playlist *Playlist) error {
 }
 
 func (d *Decoder) readLine() (string, error) {
-	line, err := d.r.ReadString('\n')
 	d.lineNumber++
+
+	line, err := d.r.ReadString('\n')
 	if err != nil && err != io.EOF {
-		return "", err
+		return "", fmt.Errorf("error reading line: %w", err)
 	}
 
 	return strings.TrimSpace(line), err
@@ -259,9 +252,11 @@ func (d *Decoder) readLine() (string, error) {
 // Unmarshal parses the M3U-encoded data and returns the playlist.
 func Unmarshal(data []byte) (*Playlist, error) {
 	playlist := &Playlist{}
+
 	err := NewDecoder(strings.NewReader(string(data))).Decode(playlist)
 	if err != nil {
 		return nil, err
 	}
+
 	return playlist, nil
 }
