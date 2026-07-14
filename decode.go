@@ -2,6 +2,7 @@ package m3u
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/url"
@@ -13,8 +14,10 @@ import (
 // Regular expressions for parsing EXTINF lines
 var (
 	extm3uLineRegex = regexp.MustCompile(`^#EXTM3U(?:\s+(.*))?$`)
-	extinfLineRegex = regexp.MustCompile(`^#EXTINF:(-?\d+\.?\d*)(.*)?,(.*)$`)
-	attributeRegex  = regexp.MustCompile(`([\p{L}\p{N}-]+)="([^"]*)"`)
+	extinfLineRegex = regexp.MustCompile(
+		`^#EXTINF:(-?\d+\.?\d*)((?:\s+[\p{L}\p{N}-]+="[^"]*")*)\s*,(.*)$`,
+	)
+	attributeRegex = regexp.MustCompile(`([\p{L}\p{N}-]+)="([^"]*)"`)
 )
 
 // Decoder reads and decodes M3U playlists from an input stream.
@@ -42,7 +45,7 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 	}
 
 	if !strings.HasPrefix(line, "#EXTM3U") {
-		return ErrInvalidPlaylist{
+		return InvalidPlaylistError{
 			Message:    "playlist must start with the `#EXTM3U` directive",
 			LineNumber: d.lineNumber,
 			Line:       line,
@@ -63,7 +66,7 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 			if err == io.EOF {
 				// If we reached EOF and there's a pending track, that's an error
 				if currentTrack != nil {
-					return ErrInvalidPlaylist{
+					return InvalidPlaylistError{
 						Message:    "`#EXTINF` directive block must end with a URL",
 						LineNumber: d.lineNumber,
 						Line:       line,
@@ -82,7 +85,7 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 
 		if strings.HasPrefix(line, "#EXTINF:") {
 			if currentTrack != nil {
-				return ErrInvalidPlaylist{
+				return InvalidPlaylistError{
 					Message:    "`#EXTINF` directive block must end with a URL",
 					LineNumber: d.lineNumber,
 					Line:       line,
@@ -96,10 +99,9 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 			}
 
 			currentTrack = &track
-			currentTrack.ExtraDirectives = nil
 		} else if strings.HasPrefix(line, "#") {
 			if currentTrack == nil {
-				return ErrInvalidPlaylist{
+				return InvalidPlaylistError{
 					Message:    "`#EXTINF` directive must appear before any other directive",
 					LineNumber: d.lineNumber,
 					Line:       line,
@@ -111,7 +113,7 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 			// This should be the URL line for the current track
 			parsedURL, err := url.Parse(line)
 			if err != nil {
-				return ErrInvalidPlaylist{
+				return InvalidPlaylistError{
 					Message:    fmt.Sprintf("invalid URL: %v", err),
 					LineNumber: d.lineNumber,
 					Line:       line,
@@ -124,7 +126,7 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 			// Reset for the next track
 			currentTrack = nil
 		} else {
-			return ErrInvalidPlaylist{
+			return InvalidPlaylistError{
 				Message:    "unexpected content",
 				LineNumber: d.lineNumber,
 				Line:       line,
@@ -144,7 +146,7 @@ func (d *Decoder) parseEXTINFLine(line string, track *Track) error {
 	// Match the basic pattern first
 	matches := extinfLineRegex.FindStringSubmatch(line)
 	if matches == nil {
-		return ErrInvalidPlaylist{
+		return InvalidPlaylistError{
 			Message: fmt.Sprintf(
 				"malformed `#EXTINF` line: `#EXTNF` line failed to match regex %q",
 				extinfLineRegex,
@@ -199,7 +201,7 @@ func (d *Decoder) parseEXTM3ULine(line string, playlist *Playlist) error {
 	// Match the basic pattern first
 	matches := extm3uLineRegex.FindStringSubmatch(line)
 	if matches == nil {
-		return ErrInvalidPlaylist{
+		return InvalidPlaylistError{
 			Message: fmt.Sprintf(
 				"malformed `#EXTM3U` line: `#EXTM3U` line failed to match regex %q",
 				extm3uLineRegex,
@@ -253,7 +255,7 @@ func (d *Decoder) readLine() (string, error) {
 func Unmarshal(data []byte) (*Playlist, error) {
 	playlist := &Playlist{}
 
-	err := NewDecoder(strings.NewReader(string(data))).Decode(playlist)
+	err := NewDecoder(bytes.NewReader(data)).Decode(playlist)
 	if err != nil {
 		return nil, err
 	}

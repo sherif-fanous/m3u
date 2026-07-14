@@ -1,6 +1,7 @@
 package m3u_test
 
 import (
+	"errors"
 	"net/url"
 	"strings"
 	"testing"
@@ -308,12 +309,12 @@ http://127.0.0.1/stream_2
 		t.Run(test.name, func(t *testing.T) {
 			_, err := m3u.Unmarshal([]byte(test.input))
 			if err == nil {
-				t.Fatal("Expected an ErrInvalidPlaylist error")
+				t.Fatal("Expected an InvalidPlaylistError error")
 			}
 
-			_, ok := err.(m3u.ErrInvalidPlaylist)
-			if !ok {
-				t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+			var invErr m3u.InvalidPlaylistError
+			if !errors.As(err, &invErr) {
+				t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 			}
 			if !strings.Contains(err.Error(), test.expectedError) {
 				t.Fatalf("Expected error message to contain %s, got: %v", test.expectedError, err)
@@ -334,12 +335,12 @@ http://127.0.0.1/stream_1
 
 	_, err := m3u.Unmarshal([]byte(input))
 	if err == nil {
-		t.Fatal("Expected an ErrInvalidPlaylist error")
+		t.Fatal("Expected an InvalidPlaylistError error")
 	}
 
-	_, ok := err.(m3u.ErrInvalidPlaylist)
-	if !ok {
-		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+	var invErr m3u.InvalidPlaylistError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 	}
 	if !strings.Contains(
 		err.Error(),
@@ -364,12 +365,12 @@ http://127.0.0.1/stream_1%
 
 	_, err := m3u.Unmarshal([]byte(input))
 	if err == nil {
-		t.Fatal("Expected an ErrInvalidPlaylist error")
+		t.Fatal("Expected an InvalidPlaylistError error")
 	}
 
-	_, ok := err.(m3u.ErrInvalidPlaylist)
-	if !ok {
-		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+	var invErr m3u.InvalidPlaylistError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "invalid URL") {
 		t.Fatalf("Expected error message to contain invalid URL, got: %v", err)
@@ -386,12 +387,12 @@ http://127.0.0.1/stream_1
 
 	_, err := m3u.Unmarshal([]byte(input))
 	if err == nil {
-		t.Fatal("Expected an ErrInvalidPlaylist error")
+		t.Fatal("Expected an InvalidPlaylistError error")
 	}
 
-	_, ok := err.(m3u.ErrInvalidPlaylist)
-	if !ok {
-		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+	var invErr m3u.InvalidPlaylistError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "malformed `#EXTINF` line") {
 		t.Fatalf("Expected error message to contain malformed `#EXTINF` line, got: %v", err)
@@ -441,12 +442,12 @@ http://127.0.0.1/stream_2
 		t.Run(test.name, func(t *testing.T) {
 			_, err := m3u.Unmarshal([]byte(test.input))
 			if err == nil {
-				t.Fatal("Expected an ErrInvalidPlaylist error")
+				t.Fatal("Expected an InvalidPlaylistError error")
 			}
 
-			_, ok := err.(m3u.ErrInvalidPlaylist)
-			if !ok {
-				t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+			var invErr m3u.InvalidPlaylistError
+			if !errors.As(err, &invErr) {
+				t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 			}
 			if !strings.Contains(err.Error(), "`#EXTINF` directive block must end with a URL") {
 				t.Fatalf(
@@ -469,12 +470,12 @@ Unexpected content
 
 	_, err := m3u.Unmarshal([]byte(input))
 	if err == nil {
-		t.Fatal("Expected an ErrInvalidPlaylist error")
+		t.Fatal("Expected an InvalidPlaylistError error")
 	}
 
-	_, ok := err.(m3u.ErrInvalidPlaylist)
-	if !ok {
-		t.Fatalf("Expected an ErrInvalidPlaylist error, got: %v", err)
+	var invErr m3u.InvalidPlaylistError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("Expected an InvalidPlaylistError error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "unexpected content") {
 		t.Fatalf("Expected error message to contain unexpected content, got: %v", err)

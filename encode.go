@@ -3,6 +3,9 @@ package m3u
 import (
 	"fmt"
 	"io"
+	"maps"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -18,33 +21,33 @@ func NewEncoder(w io.Writer) *Encoder {
 
 // Encode writes the M3U encoding of p to the stream.
 func (e *Encoder) Encode(playlist *Playlist, playlistType PlaylistType) error {
-	if _, err := e.writeString("#EXTM3U"); err != nil {
+	if err := e.writeString("#EXTM3U"); err != nil {
 		return err
 	}
 
 	// Write TVG-URL if present
 	if playlist.TVGURL != nil {
-		if _, err := e.writeString(fmt.Sprintf(" url-tvg=\"%s\"", playlist.TVGURL.String())); err != nil {
+		if err := e.writeString(fmt.Sprintf(" url-tvg=\"%s\"", playlist.TVGURL.String())); err != nil {
 			return err
 		}
 	}
 
 	// Write XTVG-URL if present
 	if playlist.XTVGURL != nil {
-		if _, err := e.writeString(fmt.Sprintf(" x-tvg-url=\"%s\"", playlist.XTVGURL.String())); err != nil {
+		if err := e.writeString(fmt.Sprintf(" x-tvg-url=\"%s\"", playlist.XTVGURL.String())); err != nil {
 			return err
 		}
 	}
 
-	// Write extra attributes
-	for key, value := range playlist.ExtraAttributes {
-		if _, err := e.writeString(fmt.Sprintf(" %s=\"%s\"", key, value)); err != nil {
+	// Write extra attributes in a deterministic (sorted) order
+	for _, key := range slices.Sorted(maps.Keys(playlist.ExtraAttributes)) {
+		if err := e.writeString(fmt.Sprintf(" %s=\"%s\"", key, playlist.ExtraAttributes[key])); err != nil {
 			return err
 		}
 	}
 
 	// Write newline after #EXTM3U line
-	if _, err := e.writeString("\n"); err != nil {
+	if err := e.writeString("\n"); err != nil {
 		return err
 	}
 
@@ -53,74 +56,74 @@ func (e *Encoder) Encode(playlist *Playlist, playlistType PlaylistType) error {
 		// Write #EXTINF line
 		if playlistType == M3UPlus {
 			// M3UPlus format with attributes
-			if _, err := e.writeString(fmt.Sprintf("#EXTINF:%.0f", track.Length)); err != nil {
+			if err := e.writeString("#EXTINF:" + formatLength(track.Length)); err != nil {
 				return err
 			}
 
 			// Write TVG-ID if present
 			if track.TVGID != nil {
-				if _, err := e.writeString(fmt.Sprintf(" tvg-id=\"%s\"", *track.TVGID)); err != nil {
+				if err := e.writeString(fmt.Sprintf(" tvg-id=\"%s\"", *track.TVGID)); err != nil {
 					return err
 				}
 			}
 
 			// Write TVG-Name if present
 			if track.TVGName != nil {
-				if _, err := e.writeString(fmt.Sprintf(" tvg-name=\"%s\"", *track.TVGName)); err != nil {
+				if err := e.writeString(fmt.Sprintf(" tvg-name=\"%s\"", *track.TVGName)); err != nil {
 					return err
 				}
 			}
 
 			// Write TVG-Language if present
 			if track.TVGLanguage != nil {
-				if _, err := e.writeString(fmt.Sprintf(" tvg-language=\"%s\"", *track.TVGLanguage)); err != nil {
+				if err := e.writeString(fmt.Sprintf(" tvg-language=\"%s\"", *track.TVGLanguage)); err != nil {
 					return err
 				}
 			}
 
 			// Write TVG-Logo if present
 			if track.TVGLogo != nil {
-				if _, err := e.writeString(fmt.Sprintf(" tvg-logo=\"%s\"", track.TVGLogo.String())); err != nil {
+				if err := e.writeString(fmt.Sprintf(" tvg-logo=\"%s\"", track.TVGLogo.String())); err != nil {
 					return err
 				}
 			}
 
 			// Write Group-Title if present
 			if track.GroupTitle != nil {
-				if _, err := e.writeString(fmt.Sprintf(" group-title=\"%s\"", *track.GroupTitle)); err != nil {
+				if err := e.writeString(fmt.Sprintf(" group-title=\"%s\"", *track.GroupTitle)); err != nil {
 					return err
 				}
 			}
 
-			// Write extra attributes
-			for key, value := range track.ExtraAttributes {
-				if _, err := e.writeString(fmt.Sprintf(" %s=\"%s\"", key, value)); err != nil {
+			// Write extra attributes in a deterministic (sorted) order
+			for _, key := range slices.Sorted(maps.Keys(track.ExtraAttributes)) {
+				if err := e.writeString(fmt.Sprintf(" %s=\"%s\"", key, track.ExtraAttributes[key])); err != nil {
 					return err
 				}
 			}
 
 		} else {
 			// M3U format without attributes
-			if _, err := e.writeString(fmt.Sprintf("#EXTINF:%.0f", track.Length)); err != nil {
+			if err := e.writeString("#EXTINF:" + formatLength(track.Length)); err != nil {
 				return err
 			}
 		}
 
 		// Add track name
-		if _, err := e.writeString(fmt.Sprintf(",%s\n", track.Name)); err != nil {
+		if err := e.writeString(fmt.Sprintf(",%s\n", track.Name)); err != nil {
 			return err
 		}
 
 		// Write extra directives
 		for _, directive := range track.ExtraDirectives {
-			if _, err := e.writeString(fmt.Sprintf("%s\n", directive)); err != nil {
+			if err := e.writeString(fmt.Sprintf("%s\n", directive)); err != nil {
 				return err
 			}
 		}
 
 		// Write URL
 		if track.URL != nil {
-			if _, err := e.writeString(fmt.Sprintf("%s\n", track.URL.String())); err != nil {
+			if err := e.writeString(fmt.Sprintf("%s\n", track.URL.String())); err != nil {
 				return err
 			}
 		}
@@ -129,11 +132,16 @@ func (e *Encoder) Encode(playlist *Playlist, playlistType PlaylistType) error {
 	return nil
 }
 
-func (e *Encoder) writeString(s string) (string, error) {
+// formatLength renders a track duration without losing fractional precision.
+func formatLength(length float64) string {
+	return strconv.FormatFloat(length, 'f', -1, 64)
+}
+
+func (e *Encoder) writeString(s string) error {
 	if _, err := io.WriteString(e.w, s); err != nil {
-		return "", fmt.Errorf("failed to write string: %w", err)
+		return fmt.Errorf("failed to write string: %w", err)
 	}
-	return s, nil
+	return nil
 }
 
 // Marshal returns the M3U encoding of p.
