@@ -2,6 +2,12 @@
 
 All notable changes to this module are documented in this file. The format is based on [Common Changelog](https://common-changelog.org/), and this module adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-16
+
+### Changed
+
+- Simplify the encoder internals by consolidating attribute writes and error handling.
+
 ## [0.5.0] - 2026-07-14
 
 ### Changed
@@ -36,6 +42,7 @@ All notable changes to this module are documented in this file. The format is ba
 
 _:seedling: Initial release._
 
+[0.5.1]: https://github.com/sherif-fanous/m3u/releases/tag/v0.5.1
 [0.5.0]: https://github.com/sherif-fanous/m3u/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sherif-fanous/m3u/releases/tag/v0.4.0
 [0.3.0]: https://github.com/sherif-fanous/m3u/releases/tag/v0.3.0

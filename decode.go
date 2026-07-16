@@ -28,10 +28,7 @@ type Decoder struct {
 
 // NewDecoder returns a new decoder that reads from r.
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{
-		r:          bufio.NewReader(r),
-		lineNumber: 0,
-	}
+	return &Decoder{r: bufio.NewReader(r)}
 }
 
 // Decode reads an M3U playlist from its input.
@@ -142,6 +139,18 @@ func (d *Decoder) Decode(playlist *Playlist) error {
 	return nil
 }
 
+// Unmarshal parses the M3U-encoded data and returns the playlist.
+func Unmarshal(data []byte) (*Playlist, error) {
+	playlist := &Playlist{}
+
+	err := NewDecoder(bytes.NewReader(data)).Decode(playlist)
+	if err != nil {
+		return nil, err
+	}
+
+	return playlist, nil
+}
+
 func (d *Decoder) parseEXTINFLine(line string, track *Track) error {
 	// Match the basic pattern first
 	matches := extinfLineRegex.FindStringSubmatch(line)
@@ -249,16 +258,4 @@ func (d *Decoder) readLine() (string, error) {
 	}
 
 	return strings.TrimSpace(line), err
-}
-
-// Unmarshal parses the M3U-encoded data and returns the playlist.
-func Unmarshal(data []byte) (*Playlist, error) {
-	playlist := &Playlist{}
-
-	err := NewDecoder(bytes.NewReader(data)).Decode(playlist)
-	if err != nil {
-		return nil, err
-	}
-
-	return playlist, nil
 }
